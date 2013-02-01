@@ -115,7 +115,8 @@ class TwitterCall(object):
 
     def __init__(
         self, auth, format, domain, callable_cls, uri="",
-        uriparts=None, secure=True, headers=None, proxies=None):
+        uriparts=None, secure=True, headers=None, proxies=None, 
+        default_timeout=None):
         self.auth = auth
         self.format = format
         self.domain = domain
@@ -125,6 +126,7 @@ class TwitterCall(object):
         self.secure = secure
         self.headers = headers or {}
         self.proxies = proxies or {}
+        self.default_timeout = default_timeout
 
     def __getattr__(self, k):
         try:
@@ -171,7 +173,7 @@ class TwitterCall(object):
             kwargs['id'] = _id
 
         # If an _timeout is specified in kwargs, use it
-        _timeout = kwargs.pop('_timeout', None)
+        _timeout = kwargs.pop('_timeout', self.default_timeout)
 
         secure_str = ''
         if self.secure:
@@ -318,7 +320,8 @@ class Twitter(TwitterCall):
         domain="api.twitter.com", secure=True, auth=None,
         api_version=_DEFAULT,
         headers=None,
-        proxies=None):
+        proxies=None,
+        default_timeout=None):
         """
         Create a new twitter API connector.
 
@@ -360,7 +363,8 @@ class Twitter(TwitterCall):
             self, auth=auth, format=format, domain=domain,
             callable_cls=TwitterCall,
             secure=secure, uriparts=uriparts, 
-            headers=headers, proxies=proxies)
+            headers=headers, proxies=proxies,
+            default_timeout=default_timeout)
 
 
 __all__ = ["Twitter", "TwitterError", "TwitterHTTPError", "TwitterResponse"]
