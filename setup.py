@@ -7,7 +7,7 @@ install_requires = [
     # -*- Extra requirements: -*-
     ]
 
-setup(name='twitter',
+setup(name='chirpy',
       version=version,
       description="An API and command-line toolset for Twitter (twitter.com)",
       long_description=open("./README", "r").read(),

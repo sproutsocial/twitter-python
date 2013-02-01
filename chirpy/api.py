@@ -10,8 +10,8 @@ try:
 except ImportError:
     from io import BytesIO as StringIO
 
-from twitter.twitter_globals import POST_ACTIONS
-from twitter.auth import NoAuth
+from .twitter_globals import POST_ACTIONS
+from .auth import NoAuth
 
 import re
 import gzip
@@ -115,7 +115,7 @@ class TwitterCall(object):
 
     def __init__(
         self, auth, format, domain, callable_cls, uri="",
-        uriparts=None, secure=True):
+        uriparts=None, secure=True, headers=None, proxies=None):
         self.auth = auth
         self.format = format
         self.domain = domain
@@ -123,6 +123,8 @@ class TwitterCall(object):
         self.uri = uri
         self.uriparts = uriparts
         self.secure = secure
+        self.headers = headers or {}
+        self.proxies = proxies or {}
 
     def __getattr__(self, k):
         try:
@@ -181,6 +183,7 @@ class TwitterCall(object):
                     secure_str, self.domain, uri, dot, self.format)
 
         headers = {'Accept-Encoding': 'gzip'}
+        headers.update(self.headers)
         if self.auth:
             headers.update(self.auth.generate_headers())
             arg_data = self.auth.encode_params(uriBase, method, kwargs)
@@ -197,6 +200,11 @@ class TwitterCall(object):
         kwargs = {}
         if _timeout:
             kwargs['timeout'] = _timeout
+
+        handler = urllib_request.ProxyHandler(self.proxies)
+        opener = urllib_request.build_opener(handler)
+        urllib_request.install_opener(opener)
+
         try:
             handle = urllib_request.urlopen(req, **kwargs)
             if handle.headers['Content-Type'] in ['image/jpeg', 'image/png']:
@@ -308,7 +316,9 @@ class Twitter(TwitterCall):
     def __init__(
         self, format="json",
         domain="api.twitter.com", secure=True, auth=None,
-        api_version=_DEFAULT):
+        api_version=_DEFAULT,
+        headers=None,
+        proxies=None):
         """
         Create a new twitter API connector.
 
@@ -349,7 +359,8 @@ class Twitter(TwitterCall):
         TwitterCall.__init__(
             self, auth=auth, format=format, domain=domain,
             callable_cls=TwitterCall,
-            secure=secure, uriparts=uriparts)
+            secure=secure, uriparts=uriparts, 
+            headers=headers, proxies=proxies)
 
 
 __all__ = ["Twitter", "TwitterError", "TwitterHTTPError", "TwitterResponse"]
