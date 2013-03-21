@@ -137,7 +137,9 @@ class TwitterCall(object):
                     auth=self.auth, format=self.format, domain=self.domain,
                     callable_cls=self.callable_cls, uriparts=self.uriparts \
                         + (arg,),
-                    secure=self.secure)
+                    secure=self.secure, headers=self.headers,
+                    proxies=self.proxies, 
+                    default_timeout=self.default_timeout)
             if k == "_":
                 return extend_call
             else:
@@ -321,7 +323,8 @@ class Twitter(TwitterCall):
         api_version=_DEFAULT,
         headers=None,
         proxies=None,
-        default_timeout=None):
+        default_timeout=None,
+        _callable_cls=None):
         """
         Create a new twitter API connector.
 
@@ -361,7 +364,7 @@ class Twitter(TwitterCall):
 
         TwitterCall.__init__(
             self, auth=auth, format=format, domain=domain,
-            callable_cls=TwitterCall,
+            callable_cls=_callable_cls or TwitterCall,
             secure=secure, uriparts=uriparts, 
             headers=headers, proxies=proxies,
             default_timeout=default_timeout)
