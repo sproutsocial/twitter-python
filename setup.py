@@ -1,10 +1,11 @@
 from setuptools import setup, find_packages
 import sys, os
 
-version = '1.9.1'
+version = '1.2.0'
 
 install_requires = [
-    # -*- Extra requirements: -*-
+        'requests>=1.2.3',
+        'requests_oauthlib>=0.3.2'
     ]
 
 setup(name='chirpy',
