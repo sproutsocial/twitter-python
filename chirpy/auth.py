@@ -16,7 +16,7 @@ class Auth(object):
         if required by the authentication scheme in use."""
         raise NotImplementedError()
 
-    def generate_headers(self):
+    def generate_headers(self, base_url=None, method=None, params=None):
         """Generates headers which should be added to the request if required
         by the authentication scheme in use."""
         raise NotImplementedError()
@@ -35,7 +35,7 @@ class UserPassAuth(Auth):
         # before encoding...
         return urllib_parse.urlencode(params)
 
-    def generate_headers(self):
+    def generate_headers(self, *args, **kwargs):
         return {b"Authorization": b"Basic " + encodebytes(
                 ("%s:%s" %(self.username, self.password))
                 .encode('utf8')).strip(b'\n')
@@ -51,5 +51,5 @@ class NoAuth(Auth):
     def encode_params(self, base_url, method, params):
         return urllib_parse.urlencode(params)
 
-    def generate_headers(self):
+    def generate_headers(self, *args, **kwargs):
         return {}

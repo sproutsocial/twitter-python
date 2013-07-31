@@ -1,25 +1,22 @@
-try:
-    import urllib.request as urllib_request
-    import urllib.error as urllib_error
-except ImportError:
-    import urllib2 as urllib_request
-    import urllib2 as urllib_error
+import re
+import requests
+
+from functools import partial
 
 try:
     from cStringIO import StringIO
 except ImportError:
     from io import BytesIO as StringIO
 
-from .twitter_globals import POST_ACTIONS
-from .auth import NoAuth
-
-import re
-import gzip
-
 try:
     import json
 except ImportError:
     import simplejson as json
+
+
+from .twitter_globals import POST_ACTIONS
+from .auth import NoAuth
+
 
 class _DEFAULT(object):
     pass
@@ -41,19 +38,14 @@ class TwitterHTTPError(TwitterError):
         self.uri = uri
         self.format = format
         self.uriparts = uriparts
-        if self.e.headers['Content-Encoding'] == 'gzip':
-            buf = StringIO(self.e.fp.read())
-            f = gzip.GzipFile(fileobj=buf)
-            self.response_data = f.read()
-        else:
-            self.response_data = self.e.fp.read()
+        self.response_data = self.e.response.content
 
     def __str__(self):
         fmt = ("." + self.format) if self.format else ""
         return (
             "Twitter sent status %i for URL: %s%s using parameters: "
-            "(%s)\ndetails: %s" %(
-                self.e.code, self.uri, fmt, self.uriparts,
+            "(%s)\ndetails: %s" % (
+                self.e.response.status_code, self.uri, fmt, self.uriparts,
                 self.response_data))
 
 class TwitterResponse(object):
@@ -113,10 +105,9 @@ def wrap_response(response, headers):
 
 class TwitterCall(object):
 
-    def __init__(
-        self, auth, format, domain, callable_cls, uri="",
-        uriparts=None, secure=True, headers=None, proxies=None, 
-        default_timeout=None):
+    def __init__(self, auth, format, domain, callable_cls, uri="",
+            uriparts=None, secure=True, headers=None, proxies=None,
+            default_timeout=None):
         self.auth = auth
         self.format = format
         self.domain = domain
@@ -127,6 +118,7 @@ class TwitterCall(object):
         self.headers = headers or {}
         self.proxies = proxies or {}
         self.default_timeout = default_timeout
+        self.is_post = False
 
     def __getattr__(self, k):
         try:
@@ -138,7 +130,7 @@ class TwitterCall(object):
                     callable_cls=self.callable_cls, uriparts=self.uriparts \
                         + (arg,),
                     secure=self.secure, headers=self.headers,
-                    proxies=self.proxies, 
+                    proxies=self.proxies,
                     default_timeout=self.default_timeout)
             if k == "_":
                 return extend_call
@@ -166,7 +158,7 @@ class TwitterCall(object):
         # the list of uriparts, assume the id goes at the end.
         id = kwargs.pop('id', None)
         if id:
-            uri += "/%s" %(id)
+            uri += "/%s" % (id)
 
         # If an _id kwarg is present, this is treated as id as a CGI
         # param.
@@ -183,55 +175,48 @@ class TwitterCall(object):
         dot = ""
         if self.format:
             dot = "."
-        uriBase = "http%s://%s/%s%s%s" %(
+        uriBase = "http%s://%s/%s%s%s" % (
                     secure_str, self.domain, uri, dot, self.format)
 
         headers = {'Accept-Encoding': 'gzip'}
         headers.update(self.headers)
-        if self.auth:
-            headers.update(self.auth.generate_headers())
-            arg_data = self.auth.encode_params(uriBase, method, kwargs)
-            if method == 'GET':
-                uriBase += '?' + arg_data
-                body = None
-            else:
-                body = arg_data.encode('utf8')
 
-        req = urllib_request.Request(uriBase, body, headers)
-        return self._handle_response(req, uri, arg_data, _timeout)
-
-    def _handle_response(self, req, uri, arg_data, _timeout=None):
-        kwargs = {}
-        if _timeout:
-            kwargs['timeout'] = _timeout
-
-        handler = urllib_request.ProxyHandler(self.proxies)
-        opener = urllib_request.build_opener(handler)
-        urllib_request.install_opener(opener)
+        if method == 'GET':
+            request = partial(requests.request, params=kwargs)
+        elif method == 'POST':
+            request = partial(requests.request, data=kwargs)
+        resp = request(method, uriBase, headers=headers, timeout=_timeout,
+            proxies=self.proxies, auth=self.auth)
 
         try:
-            handle = urllib_request.urlopen(req, **kwargs)
-            if handle.headers['Content-Type'] in ['image/jpeg', 'image/png']:
-                return handle
-            elif handle.info().get('Content-Encoding') == 'gzip':
-                # Handle gzip decompression
-                buf = StringIO(handle.read())
-                f = gzip.GzipFile(fileobj=buf)
-                data = f.read()
-            else:
-                data = handle.read()
+            return self._handle_response(resp)
+        except requests.exceptions.HTTPError as e:
+            raise TwitterHTTPError(e, uri, self.format, kwargs)
 
-            if "json" == self.format:
-                res = json.loads(data.decode('utf8'))
-                return wrap_response(res, handle.headers)
-            else:
-                return wrap_response(
-                    data.decode('utf8'), handle.headers)
-        except urllib_error.HTTPError as e:
-            if (e.code == 304):
-                return []
-            else:
-                raise TwitterHTTPError(e, uri, self.format, arg_data)
+    def _handle_response(self, resp):
+        resp.raise_for_status() # if something went wrong, raise an exception
+        if resp.headers['Content-Type'] in ['image/jpeg', 'image/png']:
+            return StringIO(resp.content)
+
+        if "json" == self.format:
+            res = json.loads(resp.content)
+            return wrap_response(res, resp.headers)
+        else:
+            return wrap_response(
+                resp.content, resp.headers)
+
+    def update_with_media(self, status, media, **kwargs):
+        url = "https://api.twitter.com/1.1/statuses/update_with_media.json"
+        kwargs['status'] = status
+        files = {'media[]': media}
+        headers = {'Accept-Encoding': 'gzip'}
+        headers.update(self.headers)
+        resp = requests.post(url, data=kwargs, files=files, headers=headers,
+            proxies=self.proxies, auth=self.auth)
+        try:
+            return self._handle_response(resp)
+        except requests.exceptions.HTTPError as e:
+            raise TwitterHTTPError(e, url, self.format, kwargs)
 
 class Twitter(TwitterCall):
     """
@@ -318,13 +303,15 @@ class Twitter(TwitterCall):
 
     """
     def __init__(
-        self, format="json",
-        domain="api.twitter.com", secure=True, auth=None,
-        api_version=_DEFAULT,
-        headers=None,
-        proxies=None,
-        default_timeout=None,
-        _callable_cls=None):
+            self, format="json",
+            domain="api.twitter.com",
+            secure=True,
+            auth=None,
+            api_version=_DEFAULT,
+            headers=None,
+            proxies=None,
+            default_timeout=None,
+            _callable_cls=None):
         """
         Create a new twitter API connector.
 
@@ -350,7 +337,7 @@ class Twitter(TwitterCall):
             auth = NoAuth()
 
         if (format not in ("json", "xml", "")):
-            raise ValueError("Unknown data format '%s'" %(format))
+            raise ValueError("Unknown data format '%s'" % (format))
 
         if api_version is _DEFAULT:
             if domain == 'api.twitter.com':
@@ -365,7 +352,7 @@ class Twitter(TwitterCall):
         TwitterCall.__init__(
             self, auth=auth, format=format, domain=domain,
             callable_cls=_callable_cls or TwitterCall,
-            secure=secure, uriparts=uriparts, 
+            secure=secure, uriparts=uriparts,
             headers=headers, proxies=proxies,
             default_timeout=default_timeout)
 

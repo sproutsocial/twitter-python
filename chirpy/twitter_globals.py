@@ -8,7 +8,7 @@
 POST_ACTIONS = [
 
     # Status Methods
-    'update', 'retweet',
+    'update', 'retweet'
 
     # Direct Message Methods
     'new',
@@ -29,3 +29,5 @@ POST_ACTIONS = [
     'create', 'create_all',
 
 ]
+
+
