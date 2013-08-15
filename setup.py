@@ -5,7 +5,7 @@ version = '1.2.0'
 
 install_requires = [
         'requests>=1.2.3',
-        'requests_oauthlib>=0.3.2'
+        'requests_oauthlib>=0.3.3'
     ]
 
 setup(name='chirpy',
