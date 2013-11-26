@@ -28,6 +28,9 @@ POST_ACTIONS = [
     # Block Methods, Friendship Methods, Favorite Methods
     'create', 'create_all',
 
+    # Users Methods
+    'report_spam',
+
 ]
 
 
