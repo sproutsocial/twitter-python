@@ -212,6 +212,9 @@ class TwitterCall(object):
         files = {'media': media}
         headers = {'Accept-Encoding': 'gzip'}
         headers.update(self.headers)
+
+        # upload media to twitter
+        # expect object containing 'media_ids' field if successful
         resp = requests.post(media_url, data=None, files=files, headers=headers, proxies=self.proxies, auth=self.auth)
         try:
             resp.raise_for_status()
@@ -219,6 +222,7 @@ class TwitterCall(object):
             raise TwitterHTTPError(e, media_url, self.format, kwargs)
         media_data = resp.json()
 
+        # send status with media ID to twitter
         kwargs['status'] = status
         if 'media_ids' not in kwargs:
             kwargs['media_ids'] = []
@@ -229,6 +233,7 @@ class TwitterCall(object):
             return self._handle_response(resp)
         except requests.exceptions.HTTPError as e:
             raise TwitterHTTPError(e, url, self.format, kwargs)
+
 
 class Twitter(TwitterCall):
     """
