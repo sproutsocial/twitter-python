@@ -206,17 +206,34 @@ class TwitterCall(object):
                 resp.content, resp.headers)
 
     def update_with_media(self, status, media, **kwargs):
-        url = "https://api.twitter.com/1.1/statuses/update_with_media.json"
-        kwargs['status'] = status
-        files = {'media[]': media}
+        media_url = "https://upload.twitter.com/1.1/media/upload.json"
+        url = "https://api.twitter.com/1.1/statuses/update.json"
+
+        files = {'media': media}
         headers = {'Accept-Encoding': 'gzip'}
         headers.update(self.headers)
-        resp = requests.post(url, data=kwargs, files=files, headers=headers,
+
+        # upload media to twitter
+        # expect object containing 'media_ids' field if successful
+        resp = requests.post(media_url, data=None, files=files, headers=headers, proxies=self.proxies, auth=self.auth)
+        try:
+            resp.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            raise TwitterHTTPError(e, media_url, self.format, kwargs)
+        media_data = resp.json()
+
+        # send status with media ID to twitter
+        kwargs['status'] = status
+        if 'media_ids' not in kwargs:
+            kwargs['media_ids'] = []
+        kwargs['media_ids'].append(media_data['media_id'])
+        resp = requests.post(url, data=kwargs, files=None, headers=headers,
             proxies=self.proxies, auth=self.auth)
         try:
             return self._handle_response(resp)
         except requests.exceptions.HTTPError as e:
             raise TwitterHTTPError(e, url, self.format, kwargs)
+
 
 class Twitter(TwitterCall):
     """
