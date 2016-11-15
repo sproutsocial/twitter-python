@@ -146,9 +146,15 @@ class TwitterCall(object):
             uriparts.append(str(kwargs.pop(uripart, uripart)))
         uri = '/'.join(uriparts)
 
+        json_body = kwargs.pop('json', None)
+
         method = kwargs.pop('_method', None)
         if not method:
             method = "GET"
+
+            if json_body is not None:
+                method = "POST"
+
             for action in POST_ACTIONS:
                 if re.search("%s(/\d+)?$" % action, uri):
                     method = "POST"
@@ -181,7 +187,6 @@ class TwitterCall(object):
         headers = {'Accept-Encoding': 'gzip'}
         headers.update(self.headers)
 
-        json_body = kwargs.pop('json', None)
         if json_body is not None:
             headers['content-type'] = 'application/json'
 
