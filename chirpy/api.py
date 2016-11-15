@@ -188,7 +188,7 @@ class TwitterCall(object):
         headers.update(self.headers)
 
         if json_body is not None:
-            headers['content-type'] = 'application/json'
+            headers['Content-Type'] = 'application/json'
 
         if method == 'GET' or method == 'DELETE':
             request = partial(requests.request, params=kwargs)
