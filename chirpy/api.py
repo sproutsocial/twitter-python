@@ -146,7 +146,7 @@ class TwitterCall(object):
             uriparts.append(str(kwargs.pop(uripart, uripart)))
         uri = '/'.join(uriparts)
 
-        json_body = kwargs.pop('json', None)
+        json_body = kwargs.pop('_json', None)
 
         method = kwargs.pop('_method', None)
         if not method:
