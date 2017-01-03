@@ -146,9 +146,15 @@ class TwitterCall(object):
             uriparts.append(str(kwargs.pop(uripart, uripart)))
         uri = '/'.join(uriparts)
 
+        json_body = kwargs.pop('_json', None)
+
         method = kwargs.pop('_method', None)
         if not method:
             method = "GET"
+
+            if json_body is not None:
+                method = "POST"
+
             for action in POST_ACTIONS:
                 if re.search("%s(/\d+)?$" % action, uri):
                     method = "POST"
@@ -181,10 +187,15 @@ class TwitterCall(object):
         headers = {'Accept-Encoding': 'gzip'}
         headers.update(self.headers)
 
-        if method == 'GET':
+        if json_body is not None:
+            headers['Content-Type'] = 'application/json; charset=utf-8'
+
+        if method == 'GET' or method == 'DELETE':
             request = partial(requests.request, params=kwargs)
         elif method == 'POST':
-            request = partial(requests.request, data=kwargs)
+            post_data = json.dumps(json_body) if json_body is not None else kwargs
+            request = partial(requests.request, data=post_data)
+
         resp = request(method, uriBase, headers=headers, timeout=_timeout,
             proxies=self.proxies, auth=self.auth)
 
@@ -197,6 +208,10 @@ class TwitterCall(object):
         resp.raise_for_status() # if something went wrong, raise an exception
         if resp.headers['Content-Type'] in ['image/jpeg', 'image/png']:
             return StringIO(resp.content)
+
+        # If it's no content, return an empty dict for compatibility
+        if resp.status_code == 204:
+            return wrap_response({}, resp.headers)
 
         if "json" == self.format:
             res = json.loads(resp.content)
