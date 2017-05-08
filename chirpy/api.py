@@ -206,12 +206,13 @@ class TwitterCall(object):
 
     def _handle_response(self, resp):
         resp.raise_for_status() # if something went wrong, raise an exception
-        if resp.headers['Content-Type'] in ['image/jpeg', 'image/png']:
-            return StringIO(resp.content)
 
         # If it's no content, return an empty dict for compatibility
         if resp.status_code == 204:
             return wrap_response({}, resp.headers)
+
+        if resp.headers['Content-Type'] in ['image/jpeg', 'image/png']:
+            return StringIO(resp.content)
 
         if "json" == self.format:
             res = json.loads(resp.content)
