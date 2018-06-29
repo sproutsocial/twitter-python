@@ -195,6 +195,9 @@ class TwitterCall(object):
         elif method == 'POST':
             post_data = json.dumps(json_body) if json_body is not None else kwargs
             request = partial(requests.request, data=post_data)
+        elif method == 'PUT':
+            put_data = json.dumps(json_body) if json_body is not None else kwargs
+            request = partial(requests.request, params=kwargs, data=put_data)
 
         resp = request(method, uriBase, headers=headers, timeout=_timeout,
             proxies=self.proxies, auth=self.auth)
