@@ -1,8 +1,7 @@
 import re
 import requests
-import requests
 import ssl
-from requests.adapters import HTTPAdapter
+
 from urllib3.util.ssl_ import create_urllib3_context
 
 from functools import partial
@@ -26,7 +25,7 @@ class _DEFAULT(object):
     pass
 
 # fix for a sudden twitter outage on 8/4/2023
-class TwitterNoSSLSessionTicketExtension(HTTPAdapter):
+class TwitterNoSSLSessionTicketExtension(requests.adapters.HTTPAdapter):
     def __init__(self):
         self.ssl_context = create_urllib3_context()
         self.ssl_context.options &= ~ssl.OP_NO_TICKET
