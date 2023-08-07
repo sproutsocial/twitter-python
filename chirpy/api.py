@@ -1,8 +1,5 @@
 import re
 import requests
-import ssl
-
-from urllib3.util.ssl_ import create_urllib3_context
 
 from functools import partial
 
@@ -23,21 +20,6 @@ from .auth import NoAuth
 
 class _DEFAULT(object):
     pass
-
-# fix for a sudden twitter outage on 8/4/2023
-class TwitterNoSSLSessionTicketExtension(requests.adapters.HTTPAdapter):
-    def __init__(self):
-        self.ssl_context = create_urllib3_context()
-        self.ssl_context.options &= ~ssl.OP_NO_TICKET
-        super().__init__()
-
-    def init_poolmanager(self, *args, **kwargs):
-        kwargs["ssl_context"] = self.ssl_context
-        super().init_poolmanager(*args, **kwargs)
-
-    def proxy_manager_for(self, *args, **kwargs):
-        kwargs["ssl_context"] = self.ssl_context
-        return super().proxy_manager_for(*args, **kwargs)
 
 class TwitterError(Exception):
     """
@@ -205,22 +187,17 @@ class TwitterCall(object):
         headers = {'Accept-Encoding': 'gzip'}
         headers.update(self.headers)
 
-        adapter = TwitterNoSSLSessionTicketExtension()
-        req_session = requests.Session()
-        req_session.mount('https://api.twitter.com', adapter)
-        req_session.mount('http://api.twitter.com', adapter)
-
         if json_body is not None:
             headers['Content-Type'] = 'application/json; charset=utf-8'
 
         if method == 'GET' or method == 'DELETE':
-            request = partial(req_session.request, params=kwargs)
+            request = partial(requests.request, params=kwargs)
         elif method == 'POST':
             post_data = json.dumps(json_body) if json_body is not None else kwargs
-            request = partial(req_session.request, data=post_data)
+            request = partial(requests.request, data=post_data)
         elif method == 'PUT':
             put_data = json.dumps(json_body) if json_body is not None else kwargs
-            request = partial(req_session.request, params=kwargs, data=put_data)
+            request = partial(requests.request, params=kwargs, data=put_data)
 
         resp = request(method, uriBase, headers=headers, timeout=_timeout,
             proxies=self.proxies, auth=self.auth)
